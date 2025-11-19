@@ -9,18 +9,19 @@ typedef struct {
 	bool revealed: 1;
 	bool flagged: 1;
 	unsigned char adjacent: 4;
-} Mine;
+} Cell;
 
-void printmine(Mine mine)
+void printcell(Cell cell)
+// TODO: Needs work. flagged/revealed/just implementation in general
 {
 	char *escape;
-	if (mine.is_mine)
+	if (cell.is_mine)
 	{
 		escape = "\e[1m";
 	} else {
 		escape = "\e[0m";
 	}
-	printf("%s%d",escape,mine.adjacent);
+	printf("%s%d",escape,cell.adjacent);
 	// free(escape);
 }
 
@@ -38,47 +39,50 @@ int main(int argc, char** argv)
 	int height = atoi(argv[2]);
 	int size = width * height;
 	int mines = atoi(argv[3]);
-	Mine *board = calloc(sizeof(Mine), size);
-	for (int i = 0; i < size; ++i)
-	{
-		Mine *mine = board+i;
-		mine->is_mine = 0;
-		mine->revealed = 0;
-		mine->flagged = 0;
-		mine->adjacent = 0;
-	}
+	Cell *board = calloc(sizeof(Cell), size);
+	// for (int i = 0; i < size; ++i)
+	// // Initialize each cell (unnecessary because calloc?)
+	// {
+	// 	Cell *cell = board+i;
+	// 	cell->is_mine = 0;
+	// 	cell->revealed = 0;
+	// 	cell->flagged = 0;
+	// 	cell->adjacent = 0;
+	// }
 	int mines_left = mines;
 	while (mines_left > 0)
+	// Scatter mines
 	{
 		int index = random() % size;
-		Mine *mine = board + index;
+		Cell *mine = board + index;
 		if (mine->is_mine) continue;
 		mine->is_mine = true;
 		int x = index % width;
 		int y = index / width;
-		// printf("Mine index %3d, %2d %2d\n",index,x,y);
-		int start_i = -1;
-		int start_j = -1;
-		int end_i = 2;
-		int end_j = 2;
-		if (x == 0) {start_i = 0;}
-		if (x == width - 1) {end_i = 1;}
-		if (y == 0) {start_j = 0;}
-		if (y == height - 1) {end_j = 1;}
-		for (int i = start_i; i < end_i; ++i)
+		// printf("Cell index %3d, %2d %2d\n",index,x,y);
+		int min_dx = -1;
+		int min_dy = -1;
+		int max_dx = 1;
+		int max_dy = 1;
+		if (x == 0) {min_dx = 0;}
+		if (x == width - 1) {max_dx = 0;}
+		if (y == 0) {min_dy = 0;}
+		if (y == height - 1) {max_dy = 0;}
+		// 8^ overflow prevention
+		for (int dx = min_dx; dx <= max_dx; ++dx)
 		{
-			for (int j = start_j; j < end_j; ++j)
+			for (int dy = min_dy; dy <= max_dy; ++dy)
 			{
-				(mine+i+width*j)->adjacent += 1;
+				(mine+dx+width*dy)->adjacent += 1;
 			}
 		}
 		--mines_left;
 	}
-	for (int i = 0; i < height; ++i)
+	for (int x = 0; x < height; ++x)
 	{
-		for (int j = 0; j < width; ++j)
+		for (int y = 0; y < width; ++y)
 		{
-			printmine(board[i*width+j]);
+			printcell(board[x*width+y]);
 		}
 		putchar('\n');
 	}

@@ -1,2 +1,2 @@
 mines: main.c
-	cc -o $@ $^
+	gcc -o $@ $^

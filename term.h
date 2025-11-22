@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
+unsigned char getc_escsafe(void);
 void enter_screen(void);
 void exit_screen(void);
 

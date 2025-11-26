@@ -24,9 +24,9 @@ struct State {
 	uint height;
 	uint size;
 	uint mines;
-	uint start_index;
 	uint cursor_index;
-	int flags;
+	int status; // 0 for quit, 1 for win, -1 for lose
+	uint total_revealed;
 } State;
 
 void flag (uint index);
@@ -36,8 +36,8 @@ void reveal(uint index);
 void move_cursor(uint index);
 void print_cell(Cell cell);
 void print_grid(void);
+void scatter_mines(uint start_index);
 void run_game(void);
-void scatter_mines(void);
 void init_screen(void);
 void init_game(int width, int height, int mines);
 
@@ -46,7 +46,6 @@ void flag(uint index)
 	Cell *cell = &State.board[index];
 	if (cell->revealed) return;
 	cell->flagged ^= true;
-	State.flags -= cell->flagged;
 }
 
 void reveal_near(uint index)
@@ -104,9 +103,13 @@ void reveal(uint index)
 {
 	Cell *cell = &State.board[index];
 	if (cell->flagged) return;
-	if (!cell->revealed)
+	if (cell->is_mine)
+	{
+		State.status = -1;
+	} else if (!cell->revealed)
 	{
 		cell->revealed = true;
+		State.total_revealed += 1;
 		if (cell->adjacent == 0)
 		{
 			reveal_near(index);
@@ -129,15 +132,10 @@ void move_cursor(uint index)
 
 void print_cell(Cell cell)
 {
-	if (cell.is_mine)
-	{
-		if (cell.flagged) fputs("\033[1;9m", stdout);
-		else              fputs("\033[1;29m", stdout);
-	} else
-	{
-		if (cell.flagged) fputs("\033[22;9m", stdout);
-		else              fputs("\033[22;29m", stdout);
-	}
+	fputs("\033[", stdout);
+	if (cell.flagged) fputs("9", stdout);
+	else fputs("29", stdout);
+	putchar('m');
 	if (cell.revealed)
 	{
 		printf(" %1d ",cell.adjacent);
@@ -160,54 +158,7 @@ void print_grid(void)
 	fflush(stdout);
 }
 
-void run_game(void)
-{
-	enter_screen();
-	enter_rawmode();
-	atexit(exit_rawmode);
-	print_grid();
-	char ch;
-	while (true)
-	{
-		print_grid();
-		move_cursor(State.cursor_index);
-		ch = getc_escsafe();
-		switch (ch) {
-		case 'q':
-			goto exit;
-		case 'h': // left
-			if (State.cursor_index % State.width == 0) break;
-			State.cursor_index -= 1;
-			break;
-		case 'j': // down
-			if (State.cursor_index / State.width == State.height - 1) break;
-			State.cursor_index += State.width;
-			break;
-		case 'k': // up
-			if (State.cursor_index < State.width) break;
-			State.cursor_index -= State.width;
-			break;
-		case 'l': // right
-			if (State.cursor_index % State.width == State.width - 1) break;
-			State.cursor_index += 1;
-			break;
-		case 'a':
-		case 's':
-		case 'd':
-		case ' ':
-			reveal(State.cursor_index);
-			break;
-		case 'f':
-			flag(State.cursor_index);
-		}
-
-	}
-exit:
-	exit_rawmode();
-	exit_screen();
-}
-
-void scatter_mines(void)
+void scatter_mines(uint start_index)
 {
 	int mines_left = State.mines;
 	while (mines_left > 0)
@@ -231,7 +182,7 @@ retry: // because `continue` would not work in `for` blocks
 		{
 			for (int dy = min_dy; dy <= max_dy; ++dy)
 			{
-				if (index + dx + dy*State.width == State.start_index) goto retry;
+				if (index + dx + dy*State.width == start_index) goto retry;
 			}
 		}
 		State.board[index].is_mine = true;
@@ -243,6 +194,132 @@ retry: // because `continue` would not work in `for` blocks
 			}
 		}
 		--mines_left;
+	}
+}
+
+void left(void) {
+	if (State.cursor_index % State.width == 0) return;
+	State.cursor_index -= 1;
+}
+void down(void) {
+	if (State.cursor_index / State.width == State.height - 1) return;
+	State.cursor_index += State.width;
+}
+void up(void) {
+	if (State.cursor_index < State.width) return;
+	State.cursor_index -= State.width;
+}
+void right(void) {
+	if (State.cursor_index % State.width == State.width - 1) return;
+	State.cursor_index += 1;
+}
+void run_game(void)
+{
+	enter_screen();
+	enter_rawmode();
+	atexit(exit_rawmode);
+	print_grid();
+	char ch;
+	while (true)
+	{
+		move_cursor(State.cursor_index);
+		ch = getc_escsafe();
+		switch (ch) {
+		case 'q':
+			goto exit;
+		case 'h':
+			left();
+			break;
+		case 'j':
+			down();
+			break;
+		case 'k':
+			up();
+			break;
+		case 'l':
+			right();
+			break;
+		case 'y':
+			up(); left();
+			break;
+		case 'u':
+			up(); right();
+			break;
+		case 'b':
+			down(); left();
+			break;
+		case 'n':
+			down(); right();
+			break;
+		case 'a':
+		case 's':
+		case 'd':
+		case ' ':
+			scatter_mines(State.cursor_index);
+			reveal(State.cursor_index);
+			goto after_mines;
+		}
+	}
+after_mines:
+	while (State.status == 0)
+	{
+		if (State.total_revealed == State.size - State.mines)
+		{
+			State.status = 1;
+			goto exit;
+		}
+		print_grid();
+		move_cursor(State.cursor_index);
+		ch = getc_escsafe();
+		switch (ch) {
+		case 'q':
+			goto exit;
+		case 'h':
+			left();
+			break;
+		case 'j':
+			down();
+			break;
+		case 'k':
+			up();
+			break;
+		case 'l':
+			right();
+			break;
+		case 'y':
+			up(); left();
+			break;
+		case 'u':
+			up(); right();
+			break;
+		case 'b':
+			down(); left();
+			break;
+		case 'n':
+			down(); right();
+			break;
+		case 'a':
+		case 's':
+		case 'd':
+		case ' ':
+			reveal(State.cursor_index);
+			break;
+		case 'f':
+			flag(State.cursor_index);
+		}
+	}
+exit:
+	exit_rawmode();
+	exit_screen();
+	switch (State.status) {
+	case -1:
+		puts("You lost!");
+		break;
+	case 0:
+		puts("You quit!");
+		break;
+	case 1:
+		puts("You won!");
 	}
 }
 
@@ -262,17 +339,18 @@ void init_game(int width, int height, int mines)
 	init_screen();
 	State.board = calloc(State.size, sizeof(Cell));
 	State.mines = mines;
-	State.flags = mines;
-	scatter_mines();
+	State.cursor_index = 0;
+	State.status = 0;
+	State.total_revealed = 0;
 }
 
 int main(int argc, char** argv)
 {
 	int seed = time(NULL);
 	srandom(seed);
-	if (argc < 5)
+	if (argc < 4)
 	{
-		fprintf(stderr, "Usage: mines <width> <height> <mines> <index>\n");
+		fprintf(stderr, "Usage: mines <width> <height> <mines>\n");
 		return EXIT_FAILURE;
 	}
 	int width = atoi(argv[1]);
@@ -287,12 +365,12 @@ int main(int argc, char** argv)
 		fprintf(stderr, "Please provide a valid integer > 0\n");
 		return EXIT_FAILURE;
 	}
-	int num_mines = atoi(argv[3]);
-	if (num_mines <= 0)
+	int mines = atoi(argv[3]);
+	if (mines <= 0)
 	{
 		fprintf(stderr, "Please provide a valid integer > 0\n");
 		return EXIT_FAILURE;
-	} else if (num_mines > width * height - 9)
+	} else if (mines > width * height - 9)
 	{
 		fprintf(stderr,
 		        "Cannot have more mines than available cells.\n"
@@ -301,18 +379,7 @@ int main(int argc, char** argv)
 		has 0 adjacent- that will require that mines < size - 9 or so. */
 		return EXIT_FAILURE;
 	}
-	int index = atoi(argv[4]);
-	if (index < 0 || index >= width * height)
-	{
-		fprintf(stderr, "Index outside of range: [0,%d)\n",
-		        width * height
-		);
-		return EXIT_FAILURE;
-	}
-	State.start_index = index; /* argument for now;
-	should be set where cursor is on first reveal */
-	State.cursor_index = index;
-	init_game(width, height, num_mines);
+	init_game(width, height, mines);
 	run_game();
 	free(State.board);
 	// ^uneccesary since program is already at exit but whatever

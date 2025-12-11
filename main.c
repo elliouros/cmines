@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
+#include <signal.h>
 #include "term.h"
 
 typedef struct Cell {
@@ -24,6 +25,7 @@ struct State {
 	uint height;
 	uint size;
 	uint mines;
+	uint flags;
 	uint cursor_index;
 	int status; // 0 for quit, 1 for win, -1 for lose
 	uint total_revealed;
@@ -37,15 +39,28 @@ void move_cursor(uint index);
 void print_cell(Cell cell);
 void print_grid(void);
 void scatter_mines(uint start_index);
+void left(void);
+void down(void);
+void up(void);
+void right(void);
 void run_game(void);
 void init_screen(void);
 void init_game(int width, int height, int mines);
+void sighandler(int signum);
 
 void flag(uint index)
 {
 	Cell *cell = &State.board[index];
 	if (cell->revealed) return;
-	cell->flagged ^= true;
+	if (cell->flagged)
+	{
+		cell->flagged = false;
+		State.flags -= 1; 
+	} else
+	{
+		cell->flagged = true;
+		State.flags -= 1; 
+	}
 }
 
 void reveal_near(uint index)
@@ -138,7 +153,7 @@ void print_cell(Cell cell)
 	putchar('m');
 	if (cell.revealed)
 	{
-		printf(" %1d ",cell.adjacent);
+		printf(" %1d ", cell.adjacent);
 	} else
 	{
 		printf("[ ]");
@@ -149,12 +164,14 @@ void print_grid(void)
 {
 	for (uint y = 0; y < State.height; ++y)
 	{
-		printf("\033[%d;%dH",State.board_y + y, State.board_x);
+		printf("\033[%d;%dH", State.board_y + y, State.board_x);
 		for (uint x = 0; x < State.width; ++x)
 		{
 			print_cell(State.board[x + y*State.width]);
 		}
 	}
+	printf("\033[%d;%dH", State.board_y - 1, State.board_x);
+	printf("%03d", State.flags); // minecount
 	fflush(stdout);
 }
 
@@ -326,7 +343,7 @@ exit:
 void init_screen(void)
 {
 	struct winsize T;
-	ioctl(STDOUT_FILENO,TIOCGWINSZ,&T);
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &T);
 	State.board_x = (T.ws_col - 3 * State.width) / 2 + 1;
 	State.board_y = (T.ws_row - State.height) / 2 + 1;
 }
@@ -339,9 +356,25 @@ void init_game(int width, int height, int mines)
 	init_screen();
 	State.board = calloc(State.size, sizeof(Cell));
 	State.mines = mines;
+	State.flags = mines;
 	State.cursor_index = 0;
 	State.status = 0;
 	State.total_revealed = 0;
+}
+
+void sighandler(int signum)
+{
+	switch (signum) {
+	case SIGWINCH:
+		init_screen();
+		printf("\033[2J");
+		fflush(stdout);
+		print_grid();
+		break;
+	default:
+		fprintf(stderr, "Failed to parse unknown signal number %d\n", signum);
+		exit(EXIT_FAILURE);
+	}
 }
 
 int main(int argc, char** argv)
@@ -379,6 +412,12 @@ int main(int argc, char** argv)
 		has 0 adjacent- that will require that mines < size - 9 or so. */
 		return EXIT_FAILURE;
 	}
+	struct sigaction handler;
+	handler.sa_handler = sighandler;
+	sigemptyset(&handler.sa_mask);
+	handler.sa_flags = 0;
+	sigaction(SIGWINCH, &handler, NULL);
+	
 	init_game(width, height, mines);
 	run_game();
 	free(State.board);

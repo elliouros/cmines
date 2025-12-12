@@ -1,4 +1,3 @@
-// #include <bits/types/stack_t.h> // ???? where the fuck did this come from
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -52,12 +51,10 @@ void flag(uint index)
 {
 	Cell *cell = &State.board[index];
 	if (cell->revealed) return;
-	if (cell->flagged)
-	{
+	if (cell->flagged) {
 		cell->flagged = false;
-		State.flags -= 1; 
-	} else
-	{
+		State.flags += 1;
+	} else {
 		cell->flagged = true;
 		State.flags -= 1; 
 	}
@@ -75,11 +72,8 @@ void reveal_near(uint index)
 	if (x == State.width - 1) {max_dx = 0;}
 	if (y == 0) {min_dy = 0;}
 	if (y == State.height - 1) {max_dy = 0;}
-	for (int dx = min_dx; dx <= max_dx; ++dx)
-	{
-		for (int dy = min_dy; dy <= max_dy; ++dy)
-		{
-			// fprintf(stderr, "%d, %d\n", dx, dy);
+	for (int dx = min_dx; dx <= max_dx; ++dx) {
+		for (int dy = min_dy; dy <= max_dy; ++dy) {
 			if (dx == 0 && dy == 0) continue;
 			if (State.board[index + dx + dy*State.width].revealed) continue;
 			reveal(index + dx + dy * State.width);
@@ -100,13 +94,10 @@ uint adjacent_flagged(uint index)
 	if (x == State.width - 1) {max_dx = 0;}
 	if (y == 0) {min_dy = 0;}
 	if (y == State.height - 1) {max_dy = 0;}
-	for (int dx = min_dx; dx <= max_dx; ++dx)
-	{
-		for (int dy = min_dy; dy <= max_dy; ++dy)
-		{
+	for (int dx = min_dx; dx <= max_dx; ++dx) {
+		for (int dy = min_dy; dy <= max_dy; ++dy) {
 			if (dx == 0 && dy == 0) continue;
-			if (State.board[index + dx + dy*State.width].flagged)
-			{
+			if (State.board[index + dx + dy*State.width].flagged) {
 				adj_flag += 1;
 			}
 		}
@@ -118,20 +109,16 @@ void reveal(uint index)
 {
 	Cell *cell = &State.board[index];
 	if (cell->flagged) return;
-	if (cell->is_mine)
-	{
+	if (cell->is_mine) {
 		State.status = -1;
-	} else if (!cell->revealed)
-	{
+	} else if (!cell->revealed) {
 		cell->revealed = true;
 		State.total_revealed += 1;
-		if (cell->adjacent == 0)
-		{
+		if (cell->adjacent == 0) {
 			reveal_near(index);
 		}
 	} else if (cell->adjacent > 0
-	           && adjacent_flagged(index) == cell->adjacent)
-	{
+	           && adjacent_flagged(index) == cell->adjacent) {
 		reveal_near(index);
 	}
 }
@@ -151,35 +138,31 @@ void print_cell(Cell cell)
 	if (cell.flagged) fputs("9", stdout);
 	else fputs("29", stdout);
 	putchar('m');
-	if (cell.revealed)
-	{
-		printf(" %1d ", cell.adjacent);
-	} else
-	{
-		printf("[ ]");
-	}
+	if (cell.revealed) printf(" %1d ", cell.adjacent);
+	else fputs("[ ]", stdout);
 }
 
 void print_grid(void)
 {
-	for (uint y = 0; y < State.height; ++y)
-	{
+	for (uint y = 0; y < State.height; ++y) {
 		printf("\033[%d;%dH", State.board_y + y, State.board_x);
-		for (uint x = 0; x < State.width; ++x)
-		{
+		for (uint x = 0; x < State.width; ++x) {
 			print_cell(State.board[x + y*State.width]);
 		}
 	}
-	printf("\033[%d;%dH", State.board_y - 1, State.board_x);
-	printf("%03d", State.flags); // minecount
+
+	// minecount
+	printf("\033[%d;%dH\033[0m%03d", // 1 above top left corner, reset styles
+	       State.board_y - 1, State.board_x,
+	       State.flags
+	);
 	fflush(stdout);
 }
 
 void scatter_mines(uint start_index)
 {
 	int mines_left = State.mines;
-	while (mines_left > 0)
-	{
+	while (mines_left > 0) {
 		uint index;
 retry: // because `continue` would not work in `for` blocks
 		index = random() % State.size;
@@ -194,19 +177,15 @@ retry: // because `continue` would not work in `for` blocks
 		if (x == State.width - 1) {max_dx = 0;}
 		if (y == 0) {min_dy = 0;}
 		if (y == State.height - 1) {max_dy = 0;}
-		// 8^ overflow prevention
-		for (int dx = min_dx; dx <= max_dx; ++dx)
-		{
-			for (int dy = min_dy; dy <= max_dy; ++dy)
-			{
+		// overflow prevention
+		for (int dx = min_dx; dx <= max_dx; ++dx) {
+			for (int dy = min_dy; dy <= max_dy; ++dy) {
 				if (index + dx + dy*State.width == start_index) goto retry;
 			}
 		}
 		State.board[index].is_mine = true;
-		for (int dx = min_dx; dx <= max_dx; ++dx)
-		{
-			for (int dy = min_dy; dy <= max_dy; ++dy)
-			{
+		for (int dx = min_dx; dx <= max_dx; ++dx) {
+			for (int dy = min_dy; dy <= max_dy; ++dy) {
 				State.board[index + dx + dy*State.width].adjacent += 1;
 			}
 		}
@@ -230,15 +209,16 @@ void right(void) {
 	if (State.cursor_index % State.width == State.width - 1) return;
 	State.cursor_index += 1;
 }
+
 void run_game(void)
 {
 	enter_screen();
+	atexit(exit_screen);
 	enter_rawmode();
 	atexit(exit_rawmode);
 	print_grid();
 	char ch;
-	while (true)
-	{
+	while (true) {
 		move_cursor(State.cursor_index);
 		ch = getc_escsafe();
 		switch (ch) {
@@ -278,10 +258,8 @@ void run_game(void)
 		}
 	}
 after_mines:
-	while (State.status == 0)
-	{
-		if (State.total_revealed == State.size - State.mines)
-		{
+	while (State.status == 0) {
+		if (State.total_revealed == State.size - State.mines) {
 			State.status = 1;
 			goto exit;
 		}
@@ -344,6 +322,7 @@ void init_screen(void)
 {
 	struct winsize T;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &T);
+	// Find position of left corner such that board is centered
 	State.board_x = (T.ws_col - 3 * State.width) / 2 + 1;
 	State.board_y = (T.ws_row - State.height) / 2 + 1;
 }
@@ -367,9 +346,8 @@ void sighandler(int signum)
 	switch (signum) {
 	case SIGWINCH:
 		init_screen();
-		printf("\033[2J");
-		fflush(stdout);
-		print_grid();
+		fputs("\033[2J", stdout);
+		print_grid(); // flushes
 		break;
 	default:
 		fprintf(stderr, "Failed to parse unknown signal number %d\n", signum);
@@ -381,43 +359,35 @@ int main(int argc, char** argv)
 {
 	int seed = time(NULL);
 	srandom(seed);
-	if (argc < 4)
-	{
+	if (argc < 4) {
 		fprintf(stderr, "Usage: mines <width> <height> <mines>\n");
 		return EXIT_FAILURE;
 	}
+
 	int width = atoi(argv[1]);
-	if (width <= 0)
-	{
+	if (width <= 0) {
 		fprintf(stderr, "Please provide a valid integer > 0\n");
 		return EXIT_FAILURE;
 	}
+
 	int height = atoi(argv[2]);
-	if (height <= 0)
-	{
+	if (height <= 0) {
 		fprintf(stderr, "Please provide a valid integer > 0\n");
 		return EXIT_FAILURE;
 	}
+
 	int mines = atoi(argv[3]);
-	if (mines <= 0)
-	{
+	if (mines <= 0) {
 		fprintf(stderr, "Please provide a valid integer > 0\n");
 		return EXIT_FAILURE;
-	} else if (mines > width * height - 9)
-	{
-		fprintf(stderr,
-		        "Cannot have more mines than available cells.\n"
-		);
-		/* Eventually, start will guarantee that the selected space
-		has 0 adjacent- that will require that mines < size - 9 or so. */
+	} else if (mines > width * height - 9) {
+		fprintf(stderr, "Cannot have more mines than available cells.\n" );
+		/* Start guarantees that the selected space has 0 adjacent mines- that
+		requires that mines < size - 9 or so. */
 		return EXIT_FAILURE;
 	}
-	struct sigaction handler;
-	handler.sa_handler = sighandler;
-	sigemptyset(&handler.sa_mask);
-	handler.sa_flags = 0;
-	sigaction(SIGWINCH, &handler, NULL);
-	
+
+	signal(SIGWINCH, sighandler);
 	init_game(width, height, mines);
 	run_game();
 	free(State.board);

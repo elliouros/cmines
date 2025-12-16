@@ -1,6 +1,4 @@
-CC = gcc
-
 mines: main.c term.o
-	gcc -o $@ $^
+	$(CC) -o $@ $^
 
 term.o: term.c

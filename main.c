@@ -132,14 +132,58 @@ void move_cursor(uint index)
 	fflush(stdout);
 }
 
+#define DEF_COL "\033[39m"
+#define BLUE_1 "\033[34m1"
+#define GREEN_2 "\033[32m2"
+#define RED_3 "\033[31m3"
+#define DEEPBLUE_4 "\033[34m4"
+#define MAROON_5 "\033[31m5"
+#define CYAN_6 "\033[36m6"
+#define PURPLE_7 "\033[35m7"
+#define PINK_8 "\033[35m8"
 void print_cell(Cell cell)
 {
 	fputs("\033[", stdout);
-	if (cell.flagged) fputs("9", stdout);
-	else fputs("29", stdout);
+	if (cell.flagged) fputs("9", stdout); // strikethrough
+	else fputs("29", stdout); // reset strikethrough
 	putchar('m');
-	if (cell.revealed) printf(" %1d ", cell.adjacent);
-	else fputs("[ ]", stdout);
+	if (cell.revealed) {
+		putchar(' ');
+		switch (cell.adjacent) {
+		case 0:
+			fputs(DEF_COL, stdout);
+			putchar(' ');
+			break;
+		case 1:
+			fputs(BLUE_1, stdout);
+			break;
+		case 2:
+			fputs(GREEN_2, stdout);
+			break;
+		case 3:
+			fputs(RED_3, stdout);
+			break;
+		case 4:
+			fputs(DEEPBLUE_4, stdout);
+			break;
+		case 5:
+			fputs(MAROON_5, stdout);
+			break;
+		case 6:
+			fputs(CYAN_6, stdout);
+			break;
+		case 7:
+			fputs(PURPLE_7, stdout);
+			break;
+		case 9:
+			fputs(PINK_8, stdout);
+		}
+		putchar(' ');
+	} else {
+		fputs(DEF_COL, stdout);
+		fputs("[ ]", stdout);
+	}
+	// usually (if ever not?) flushed by print_grid
 }
 
 void print_grid(void)

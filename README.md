@@ -11,6 +11,21 @@ make
 
 May or may not work in Windows; I haven't tried and I don't plan to.
 
+## controls
+
+| key               | effect |
+|-------------------|--------|
+|h                  | left   |
+|j                  | down   |
+|k                  | up     |
+|l                  | right  |
+|a, s, d, or space  | reveal |
+|f                  | flag   |
+|q                  | quit   |
+
+arrow keys do not and *will not* work. I don't like parsing the input for them.
+hjkl is enough for me.
+
 ## is it any good?
 
 No. Escapes are printed directly instead of using a library like ncurses.

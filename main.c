@@ -31,7 +31,9 @@ struct State {
 } State;
 
 void flag (uint index);
+void flag_adjacent_unflagged(uint index);
 void reveal_near(uint index);
+uint adjacent_unrevealed(uint index);
 uint adjacent_flagged(uint index);
 void reveal(uint index);
 void move_cursor(uint index);
@@ -50,13 +52,64 @@ void sighandler(int signum);
 void flag(uint index)
 {
 	Cell *cell = &State.board[index];
-	if (cell->revealed) return;
+	if (cell->revealed) {
+		if (adjacent_unrevealed(index) > cell->adjacent) return;
+		flag_adjacent_unflagged(index);
+		return;
+	};
 	if (cell->flagged) {
 		cell->flagged = false;
 		State.flags += 1;
 	} else {
 		cell->flagged = true;
 		State.flags -= 1; 
+	}
+}
+
+uint adjacent_unrevealed(uint index)
+{
+	uint adj_unrevealed = 0;
+	int x = index % State.width;
+	int y = index / State.width;
+	int min_dx = -1;
+	int min_dy = -1;
+	int max_dx = 1;
+	int max_dy = 1;
+	if (x == 0) {min_dx = 0;}
+	if (x == State.width - 1) {max_dx = 0;}
+	if (y == 0) {min_dy = 0;}
+	if (y == State.height - 1) {max_dy = 0;}
+	for (int dx = min_dx; dx <= max_dx; ++dx) {
+		for (int dy = min_dy; dy <= max_dy; ++dy) {
+			if (dx == 0 && dy == 0) continue;
+			if (!State.board[index + dx + dy*State.width].revealed) {
+				adj_unrevealed += 1;
+			}
+		}
+	}
+	return adj_unrevealed;
+}
+
+void flag_adjacent_unflagged(uint index)
+{
+	int x = index % State.width;
+	int y = index / State.width;
+	int min_dx = -1;
+	int min_dy = -1;
+	int max_dx = 1;
+	int max_dy = 1;
+	if (x == 0) {min_dx = 0;}
+	if (x == State.width - 1) {max_dx = 0;}
+	if (y == 0) {min_dy = 0;}
+	if (y == State.height - 1) {max_dy = 0;}
+	for (int dx = min_dx; dx <= max_dx; ++dx) {
+		for (int dy = min_dy; dy <= max_dy; ++dy) {
+			if (dx == 0 && dy == 0) continue;
+			Cell *cell = &State.board[index + dx + dy*State.width];
+			if (cell->revealed || cell->flagged) continue;
+			cell->flagged = true;
+			State.flags -= 1;
+		}
 	}
 }
 
